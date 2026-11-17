@@ -34,8 +34,10 @@ pygame.display.set_caption("Creature Simulation - Part 2")
 
 # =====================================================================
 # --- Part 2 Task 4: Singleton (GameSettings) ---
-# Only ONE GameSettings object should ever exist. Everyone asks for it
-# with GameSettings.get() instead of calling GameSettings() directly.
+# The whole program should share ONE GameSettings object. Everyone asks
+# for it with GameSettings.get() instead of calling GameSettings()
+# directly. (That is an agreement: GameSettings() would still create a
+# separate second object - see part2/README.md.)
 # =====================================================================
 class GameSettings:
     _instance = None

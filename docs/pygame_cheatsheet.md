@@ -77,8 +77,14 @@ pygame.quit()
 ```
 
 - **Forgot `screen.fill(...)`?** Moving shapes leave trails.
-- **`clock.tick(60)`** keeps the speed the same on fast and slow computers. With 60 FPS,
-  `speed = 3` means 3 pixels per frame = 180 pixels per second.
+- **`clock.tick(60)`** sets a *maximum* of 60 frames per second, so a fast computer doesn't
+  run the loop thousands of times a second. It does **not** guarantee 60 FPS: a slow
+  computer may manage fewer.
+- **Speed is per frame.** `speed = 3` means 3 pixels **per frame**. That's 180 pixels per
+  second *only if* the game really runs at 60 FPS. At 30 FPS the creature moves half as far
+  per second. *(Going further: `dt = clock.tick(60) / 1000` gives the seconds since the
+  last frame. Moving by `speed * dt` instead, with speed now in pixels per **second**, keeps
+  the speed the same at any frame rate. Not needed for this project.)*
 
 ## Keyboard and mouse
 

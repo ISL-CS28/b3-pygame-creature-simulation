@@ -77,7 +77,9 @@ python check_structure.py part2    # Part 2
 ```
 
 The checker runs your program for one frame without opening a window. It then lists each task
-as `[DONE]` or `[NOT YET]`. It only checks **structure** (classes exist, inherit, override
+as `[DONE]` or `[NOT YET]`, or `[CAN'T CHECK]` when it can't test something automatically
+(for example, a class that isn't in your `creatures` list yet). Check those parts yourself by
+running your program. It only checks **structure** (classes exist, inherit, override
 methods, draw something). It cannot judge whether your creatures are interesting. That part is
 your job.
 
@@ -91,7 +93,7 @@ In PyCharm, right-click `check_structure.py` and choose **Run**. For Part 2, add
 Before you hand in, check:
 
 - [ ] The program runs without errors and closes cleanly when you close the window.
-- [ ] `python check_structure.py` (and `part2` if you did Part 2) shows no unexpected `[NOT YET]`.
+- [ ] `python check_structure.py` (and `part2` if you did Part 2) shows no unexpected `[NOT YET]`, and you checked any `[CAN'T CHECK]` items yourself.
 - [ ] Every `TODO` you completed has been **replaced** by your code or comment (don't leave stale TODOs).
 - [ ] Your classes and methods have meaningful names and short comments explaining *why*.
 - [ ] Part 1: the self-check table in [`part1/README.md`](part1/README.md#self-check) is filled in.

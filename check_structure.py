@@ -6,8 +6,10 @@ Self-check for the Creature Simulation.
 
 It only checks STRUCTURE (do the classes exist, inherit, override, store
 attributes, draw something ...). It cannot tell you whether your idea is
-good - that is up to you and your teacher. "NOT YET" is not an error:
-it just means that part of the task is still to do.
+good - that is up to you and your teacher.
+  [NOT YET]      not an error: that part of the task is still to do.
+  [CAN'T CHECK]  this script could not test it automatically (for example a
+                 class that is not in the creatures list yet). Check it yourself.
 
 You do not need to read or change this file.
 """
@@ -35,9 +37,15 @@ TARGETS = {
 results = []
 
 
-def report(ok, text):
+LABELS = {True: "  [DONE]       ", False: "  [NOT YET]    ", None: "  [CAN'T CHECK]"}
+
+
+def report(ok, text, why=""):
+    """ok: True = done, False = not yet, None = could not be checked automatically."""
     results.append(ok)
-    print(("  [DONE]    " if ok else "  [NOT YET] ") + text)
+    print(f"{LABELS[ok]} {text}")
+    if ok is None and why:
+        print(f"                  ({why})")
 
 
 def load(path):
@@ -73,23 +81,36 @@ def real_override(cls, name):
     return name in vars(cls) and not is_stub(vars(cls)[name])
 
 
-def make(cls):
-    try:
-        return cls(100, 100, 2)
-    except Exception as e:  # noqa: BLE001 - report, don't crash
-        print(f"      (could not create {cls.__name__}(100, 100, 2): {e!r})")
-        return None
+def creatures_in(m):
+    """The objects in the program's own `creatures` list (we never build creatures ourselves,
+    because your classes may need extra constructor arguments)."""
+    creatures = getattr(m, "creatures", None)
+    return list(creatures) if isinstance(creatures, (list, tuple)) else []
 
 
-def draws_something(obj):
+def draw_status(obj):
+    """True/False = drew something / nothing; None = draw() raised, so we can't tell."""
     import pygame
     surface = pygame.Surface((800, 600), pygame.SRCALPHA)
     surface.fill((0, 0, 0, 0))  # fully transparent: anything drawn shows up
     try:
         obj.draw(surface)
-    except Exception:  # noqa: BLE001
-        return False
-    return surface.get_bounding_rect().width > 0
+    except Exception as e:  # noqa: BLE001 - report, don't crash
+        return None, f"draw() raised {e!r} when drawing on a test surface"
+    return surface.get_bounding_rect().width > 0, ""
+
+
+def check_drawing(m, subs):
+    by_type = {}
+    for c in creatures_in(m):
+        by_type.setdefault(type(c), c)
+    for cls in subs:
+        if cls not in by_type:
+            report(None, f"{cls.__name__} draws something on screen",
+                   "no object of this class is in the creatures list yet")
+            continue
+        ok, why = draw_status(by_type[cls])
+        report(ok, f"{cls.__name__} draws something on screen", why)
 
 
 def check_common(m):
@@ -109,20 +130,66 @@ def check_common(m):
 
 
 def check_part1(m):
+    creatures = creatures_in(m)
     print("\nTask A - parent class")
-    if hasattr(m, "Creature"):
-        obj = make(m.Creature)
-        report(obj is not None and len(vars(obj)) >= 3,
-               "Creature.__init__ stores attributes (at least x, y, speed)")
+    if not creatures:
+        report(None, "creatures store attributes (at least x, y, speed)",
+               "the creatures list is empty")
+    else:
+        report(all(len(vars(c)) >= 3 for c in creatures),
+               "creatures store attributes (at least x, y, speed)")
     print("\nTask B - child classes")
     subs = check_common(m)
     print("\nTask C - polymorphism")
-    creatures = getattr(m, "creatures", [])
     kinds = {type(c) for c in creatures}
     report(len(kinds) >= 2, f"the creatures list mixes different types ({len(kinds)} type(s))")
-    for cls in subs:
-        obj = make(cls)
-        report(obj is not None and draws_something(obj), f"{cls.__name__} draws something on screen")
+    check_drawing(m, subs)
+
+
+def factory_kinds(factory):
+    """The kind names the factory compares against, read from its source code."""
+    try:
+        tree = ast.parse(textwrap.dedent(inspect.getsource(factory.create)))
+    except (OSError, TypeError, SyntaxError, AttributeError):
+        return []
+    kinds = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Compare):
+            values = [node.left, *node.comparators]
+        elif isinstance(node, ast.Dict):
+            values = node.keys
+        else:
+            continue
+        for v in values:
+            if isinstance(v, ast.Constant) and isinstance(v.value, str) and v.value not in kinds:
+                kinds.append(v.value)
+    return kinds
+
+
+def check_factory(m):
+    factory = getattr(m, "CreatureFactory", None)
+    if factory is None:
+        report(False, "class CreatureFactory exists")
+        return
+    kinds = factory_kinds(factory)
+    made, errors = set(), []
+    for kind in kinds:
+        try:
+            obj = factory.create(kind, 100, 100, 2)
+        except Exception as e:  # noqa: BLE001
+            errors.append(f"create({kind!r}, 100, 100, 2) raised {e!r}")
+            continue
+        if hasattr(m, "Creature") and isinstance(obj, m.Creature):
+            made.add(type(obj))
+    if len(made) >= 2:
+        report(True, f"CreatureFactory creates at least 2 creature types ({len(made)} found)")
+    elif errors or not kinds:
+        report(None, "CreatureFactory creates at least 2 creature types",
+               "; ".join(errors) or "could not find the kind names in create()")
+    else:
+        report(False, f"CreatureFactory creates at least 2 creature types ({len(made)} found)")
+    report(True if len(made) >= 3 else (None if errors or not kinds else False),
+           f"(optional, with Task 1) the factory also creates your new type(s) ({len(made)} types)")
 
 
 def check_part2(m):
@@ -132,35 +199,33 @@ def check_part2(m):
     working = [c for c in subs if real_override(c, "move") or real_override(c, "draw")]
     report(len(working) >= 3,
            f"at least 3 Creature subclasses with real behaviour ({len(working)} found)")
-    for cls in subs:
-        obj = make(cls)
-        report(obj is not None and draws_something(obj), f"{cls.__name__} draws something on screen")
+    check_drawing(m, subs)
     print("\nTask 2 - abstraction")
     if hasattr(m, "Creature"):
-        obj = make(m.Creature)
-        try:
-            obj.move()
-            ok = False
-        except NotImplementedError:
-            ok = True
-        except Exception:  # noqa: BLE001
-            ok = False
-        report(ok, "Creature.move() raises NotImplementedError")
-    print("\nTask 3 - factory")
-    factory = getattr(m, "CreatureFactory", None)
-    made = set()
-    if factory is not None:
-        for kind in "ABCDEFGH":
+        bare = object.__new__(m.Creature)  # skip __init__: we only call the parent's methods
+        for name, args in (("move", ()), ("draw", (None,))):
             try:
-                made.add(type(factory.create(kind, 100, 100, 2)))
+                getattr(m.Creature, name)(bare, *args)
+                ok = False
+            except NotImplementedError:
+                ok = True
             except Exception:  # noqa: BLE001
-                pass
-    report(len(made) >= 3, f"CreatureFactory builds a new kind besides 'A' and 'B' ({len(made)} kinds found)")
+                ok = False
+            report(ok, f"Creature.{name}() raises NotImplementedError")
+    print("\nTask 3 - factory")
+    check_factory(m)
     print("\nTask 4 - singleton")
     gs = getattr(m, "GameSettings", None)
-    if gs is not None:
-        report(gs.get() is gs.get(), "GameSettings.get() always returns the same object")
-        report(len(vars(gs.get())) >= 2, "GameSettings has at least one extra setting")
+    if gs is None:
+        report(False, "class GameSettings exists")
+    else:
+        try:
+            first, second = gs.get(), gs.get()
+        except Exception as e:  # noqa: BLE001
+            report(None, "GameSettings.get() works", f"raised {e!r}")
+        else:
+            report(first is second, "GameSettings.get() always returns the same object")
+            report(len(vars(first)) >= 2, "GameSettings has at least one extra setting")
     print("\nTask 5 - observer (optional)")
     observers = [obj for obj in vars(m).values()
                  if inspect.isclass(obj) and "update" in vars(obj)]
@@ -186,7 +251,12 @@ def main():
     import pygame
     pygame.init()
     (check_part1 if which == "part1" else check_part2)(module)
-    print(f"\n{sum(results)} / {len(results)} checks done.")
+    done, not_yet = results.count(True), results.count(False)
+    unknown = results.count(None)
+    print(f"\n{done} done, {not_yet} not yet, {unknown} can't check (out of {len(results)}).")
+    if unknown:
+        print("[CAN'T CHECK] is not a mistake: it means this script could not test it.")
+        print("Check that part yourself by running your program.")
     return 0
 
 

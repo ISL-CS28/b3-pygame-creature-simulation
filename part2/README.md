@@ -13,7 +13,20 @@ any order. Task 6 (reflection) is for everyone.
 3. **Copy your Part 1 code into it:** paste your `Creature` attributes into `Creature.__init__`,
    and your `CreatureTypeA` / `CreatureTypeB` code into the placeholder classes. Replace the
    `pass` stubs with your real `move()` / `draw()`.
-4. Run it. It should look the same as your finished Part 1.
+4. **Did your Part 1 parent class do real work in `move()` or `draw()`?** For example, if
+   `Creature.draw()` drew the circle and your child classes only overrode `move()`, that code
+   can't stay in the parent. In Part 2 the parent's `move()`/`draw()` only raise
+   `NotImplementedError`, so every subclass must now provide **both** methods itself. You
+   have two options:
+   - **Move it down:** put that code into the `draw()` (or `move()`) of each subclass that
+     used to inherit it. It's fine if two subclasses start out with the same code.
+   - **Shared helper:** keep the shared code in the parent under a *different* name, e.g.
+     `def draw_circle(self, screen): ...`, and let each subclass's `draw()` call
+     `self.draw_circle(screen)`. The parent stays abstract (`move()`/`draw()` still raise) but
+     you don't repeat code.
+5. Run it. It should look the same as your finished Part 1. If you see
+   `NotImplementedError: Subclasses must implement draw()`, a subclass is still relying on the
+   parent's old `draw()`. See step 4.
 
 > Your `part1/creature_sim.py` stays as it is, so you keep a record of Part 1.
 
@@ -77,10 +90,10 @@ says `PizzaFactory.create("veggie")`. The input could even come from a file or a
 
 #### Singleton
 
-**Problem:** some things should exist **exactly once**, such as game settings, a score board or
+**Problem:** some things should exist only **once**, such as game settings, a score board or
 a log. If different parts of the program each create their own copy, they get out of sync.
-**Solution:** the class keeps its single instance in a class variable and hands out that same
-object every time.
+**Solution:** the class keeps one shared instance in a class variable, and `get()` hands out
+that same object every time.
 
 ```python
 class Logbook:
@@ -94,6 +107,12 @@ class Logbook:
 
 assert Logbook.get() is Logbook.get()   # always the same object
 ```
+
+**Careful:** this simple version only works **by agreement**. Everyone has to use
+`Logbook.get()`. Nothing stops someone from writing `Logbook()` directly, which creates a
+second, separate object, and then the "only one" promise is broken. Stricter singletons
+*prevent* this, e.g. by making the constructor complain when an instance already exists.
+*(Optional challenge: how could `__init__` detect that `_instance` is already set?)*
 
 **Why it's useful:** one shared source of truth that any part of the program can reach,
 without passing it around everywhere.
