@@ -89,9 +89,12 @@ def creatures_in(m):
 
 
 def draw_status(obj):
-    """True = drew something. False = drew nothing although it is on screen.
-    None = can't tell (draw() raised, or the creature may simply be off-screen)."""
+    """True = drew something. False = draw() is not implemented yet (only a stub).
+    None = can't tell (draw() raised, or it has real code but drew nothing this frame)."""
     import pygame
+    draw = getattr(type(obj), "draw", None)  # the draw() this object really uses (may be inherited)
+    if draw is None or is_stub(draw):
+        return False, ""
     surface = pygame.Surface((800, 600), pygame.SRCALPHA)
     surface.fill((0, 0, 0, 0))  # fully transparent: anything drawn shows up
     try:
@@ -100,12 +103,7 @@ def draw_status(obj):
         return None, f"draw() raised {e!r} when drawing on a test surface"
     if surface.get_bounding_rect().width > 0:
         return True, ""
-    x, y = getattr(obj, "x", None), getattr(obj, "y", None)
-    if not all(isinstance(v, (int, float)) for v in (x, y)):
-        return None, "drew nothing, and it has no self.x / self.y to tell where it should be"
-    if not (0 <= x < 800 and 0 <= y < 600):
-        return None, f"drew nothing, but it is off-screen at ({x}, {y}) after the first frame"
-    return False, ""
+    return None, "draw() has code but drew nothing on the test surface (off-screen?)"
 
 
 def check_drawing(m, subs):
