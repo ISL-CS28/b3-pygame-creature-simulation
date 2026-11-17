@@ -89,7 +89,8 @@ def creatures_in(m):
 
 
 def draw_status(obj):
-    """True/False = drew something / nothing; None = draw() raised, so we can't tell."""
+    """True = drew something. False = drew nothing although it is on screen.
+    None = can't tell (draw() raised, or the creature may simply be off-screen)."""
     import pygame
     surface = pygame.Surface((800, 600), pygame.SRCALPHA)
     surface.fill((0, 0, 0, 0))  # fully transparent: anything drawn shows up
@@ -97,7 +98,14 @@ def draw_status(obj):
         obj.draw(surface)
     except Exception as e:  # noqa: BLE001 - report, don't crash
         return None, f"draw() raised {e!r} when drawing on a test surface"
-    return surface.get_bounding_rect().width > 0, ""
+    if surface.get_bounding_rect().width > 0:
+        return True, ""
+    x, y = getattr(obj, "x", None), getattr(obj, "y", None)
+    if not all(isinstance(v, (int, float)) for v in (x, y)):
+        return None, "drew nothing, and it has no self.x / self.y to tell where it should be"
+    if not (0 <= x < 800 and 0 <= y < 600):
+        return None, f"drew nothing, but it is off-screen at ({x}, {y}) after the first frame"
+    return False, ""
 
 
 def check_drawing(m, subs):
@@ -181,15 +189,15 @@ def check_factory(m):
             continue
         if hasattr(m, "Creature") and isinstance(obj, m.Creature):
             made.add(type(obj))
-    if len(made) >= 2:
-        report(True, f"CreatureFactory creates at least 2 creature types ({len(made)} found)")
-    elif errors or not kinds:
-        report(None, "CreatureFactory creates at least 2 creature types",
-               "; ".join(errors) or "could not find the kind names in create()")
-    else:
-        report(False, f"CreatureFactory creates at least 2 creature types ({len(made)} found)")
-    report(True if len(made) >= 3 else (None if errors or not kinds else False),
-           f"(optional, with Task 1) the factory also creates your new type(s) ({len(made)} types)")
+    # The kind names are guessed from the source (an `else:` branch has no name), so a
+    # short count only means "couldn't confirm", never "not done".
+    found = (f"kinds found in create(): {', '.join(map(repr, kinds)) or 'none'}; "
+             f"{len(made)} creature type(s) built")
+    why = "; ".join([found, *errors])
+    report(True if len(made) >= 2 else None,
+           "CreatureFactory creates at least 2 creature types", why)
+    report(True if len(made) >= 3 else None,
+           "(optional, with Task 1) the factory also creates your new type(s)", why)
 
 
 def check_part2(m):
