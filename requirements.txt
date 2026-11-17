@@ -1,0 +1,5 @@
+# pygame-ce ("community edition") is a drop-in replacement for pygame.
+# You still write `import pygame` in your code. We use it because the original
+# pygame package does not publish ready-made installers (wheels) for the newest
+# Python versions, while pygame-ce does. See README.md for details.
+pygame-ce>=2.5
